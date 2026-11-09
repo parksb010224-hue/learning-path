@@ -1,3 +1,5 @@
+# 파일 역할: 제출 관련 서비스 로직
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from ..services.judge_service import judge_submission
 router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 
+# submit_code: submit code 처리 결과를 생성하거나 반환합니다.
 @router.post("", response_model=SubmitCodeResponse)
 def submit_code(payload: SubmitCodeRequest, db: Session = Depends(get_db)):
     if payload.language.lower() != "python":

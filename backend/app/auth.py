@@ -1,3 +1,5 @@
+# 파일 역할: 회원가입·로그인·탈퇴 API와 비밀번호 해시 검증 로직
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -9,30 +11,30 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+# RegisterRequest: 관련 데이터와 동작을 묶는 클래스입니다.
 class RegisterRequest(BaseModel):
     username: str
     password: str
     nickname: str
 
+# LoginRequest: 관련 데이터와 동작을 묶는 클래스입니다.
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 
+# get_password_hash: get password hash 처리 결과를 생성하거나 반환합니다.
 def get_password_hash(password: str):
     return pwd_context.hash(password)
 
 
+# verify_password: verify password 처리 결과를 생성하거나 반환합니다.
 def verify_password(plain_password: str, password_hash: str):
     return pwd_context.verify(plain_password, password_hash)
 
+# register: 계정 중복 여부를 확인하고 안전하게 해시한 비밀번호로 사용자를 생성합니다.
 @router.post("/register")
 def register(request: RegisterRequest):
-    print("password =", request.password)
-    print("length =", len(request.password))
-
-    password_hash = get_password_hash(request.password)
-
     conn = get_connection()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
 
@@ -68,6 +70,7 @@ def register(request: RegisterRequest):
         "nickname": request.nickname
     }
 
+# login: 아이디와 비밀번호 해시를 검증한 뒤 사용자 정보를 응답합니다.
 @router.post("/login")
 def login(request: LoginRequest):
     conn = get_connection()
@@ -100,6 +103,7 @@ def login(request: LoginRequest):
         "nickname": user["nickname"]
     }
 
+# delete_user: 요청된 사용자 계정 데이터를 제거합니다.
 @router.delete("/users/{user_id}")
 def delete_user(user_id: int):
     conn = get_connection()

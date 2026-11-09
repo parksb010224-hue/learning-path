@@ -1,8 +1,11 @@
+# 파일 역할: AI 분석 관련 라우터 정의
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 
+# analyze_submission: analyze submission 처리 결과를 생성하거나 반환합니다.
 @router.post("/{submission_id}")
 def analyze_submission(submission_id: int):
     return {

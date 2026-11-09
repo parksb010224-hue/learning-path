@@ -1,3 +1,5 @@
+# 파일 역할: FastAPI 애플리케이션 설정과 AI 분석·추천·통계 엔드포인트
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,7 +9,7 @@ from app.ai_service import analyze_submission, recommend_problems
 
 from .routers.problems import router as problems_router
 from .routers.submissions import router as submissions_router
-
+import pymysql
 
 app = FastAPI(title="Learning Path API")
 
@@ -22,6 +24,7 @@ app.add_middleware(
 )
 
 
+# create_analysis: 제출 코드에 대한 AI 분석을 생성·저장합니다.
 @app.post("/analysis/{submission_id}")
 def create_analysis(submission_id: int):
     conn = get_connection()
@@ -54,8 +57,11 @@ def create_analysis(submission_id: int):
 
             existing_analysis = cursor.fetchone()
 
-            if existing_analysis:
+            if existing_analysis and existing_analysis.get("wrong_type") != "AI 분석 실패":
                 return existing_analysis
+            if existing_analysis:
+                # Replace legacy failure placeholders only when generation succeeds.
+                cursor.execute("DELETE FROM ai_analyses WHERE submission_id = %s", (submission_id,))
 
             try:
                 result = analyze_submission(
@@ -64,18 +70,13 @@ def create_analysis(submission_id: int):
                     source_code=submission["source_code"],
                     verdict=submission["verdict"]
                 )
-            except Exception:
-                result = {
-                    "wrong_type": "AI 분석 실패",
-                    "analysis_text": "현재 AI 분석을 생성할 수 없습니다.",
-                    "hint1": "잠시 후 다시 시도해보세요.",
-                    "hint2": "테스트케이스를 먼저 확인해보세요.",
-                    "hint3": "입력 형식과 출력 형식을 확인해보세요.",
-                    "retry_guide": "문제 설명과 예제 입출력을 다시 비교해보세요.",
-                    "time_complexity": "분석 불가",
-                    "improvement_suggestion": "AI 서버가 정상일 때 다시 요청하세요.",
-                    "counter_example": "분석 불가"
-                }
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="AI 분석을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.") from exc
+            if (not isinstance(result, dict)
+                    or not isinstance(result.get("analysis_text"), str)
+                    or not result["analysis_text"].strip()
+                    or result.get("wrong_type") == "AI 분석 실패"):
+                raise HTTPException(status_code=503, detail="AI 분석 응답을 읽지 못했습니다. 다시 시도해주세요.")
 
             cursor.execute("""
                 INSERT INTO ai_analyses
@@ -119,6 +120,7 @@ def create_analysis(submission_id: int):
         conn.close()
 
 
+# get_analysis: get analysis 처리 결과를 생성하거나 반환합니다.
 @app.get("/analysis/{submission_id}")
 def get_analysis(submission_id: int):
     conn = get_connection()
@@ -136,12 +138,15 @@ def get_analysis(submission_id: int):
             if not analysis:
                 raise HTTPException(status_code=404, detail="분석 결과가 없습니다.")
 
+            if analysis.get("wrong_type") == "AI 분석 실패":
+                raise HTTPException(status_code=503, detail="이전 AI 분석이 실패했습니다. 다시 요청해주세요.")
             return analysis
 
     finally:
         conn.close()
 
 
+# get_ai_recommendations: get ai recommendations 처리 결과를 생성하거나 반환합니다.
 @app.get("/recommendations/ai/{submission_id}")
 def get_ai_recommendations(submission_id: int):
     conn = get_connection()
@@ -164,6 +169,9 @@ def get_ai_recommendations(submission_id: int):
 
             if not submission:
                 raise HTTPException(status_code=404, detail="제출 기록을 찾을 수 없습니다.")
+
+            if submission["verdict"] != "ACCEPTED":
+                return []
 
             cursor.execute("""
                 SELECT *
@@ -203,11 +211,16 @@ def get_ai_recommendations(submission_id: int):
             if not problem_list:
                 return []
 
-            ai_result = recommend_problems(
-                problem_title=submission["problem_title"],
-                wrong_type=wrong_type,
-                problem_list=problem_list
-            )
+            try:
+                ai_result = recommend_problems(
+                    problem_title=submission["problem_title"],
+                    wrong_type=wrong_type,
+                    problem_list=problem_list
+                )
+                if not isinstance(ai_result, dict) or not isinstance(ai_result.get("recommendations"), list):
+                    raise ValueError("Invalid recommendation response")
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="AI 추천을 불러오지 못했습니다. 다시 시도해주세요.") from exc
 
             recommended_ids = [
                 item["problem_id"]
@@ -240,6 +253,7 @@ def get_ai_recommendations(submission_id: int):
     finally:
         conn.close()
 
+# save_recommendation_feedback: save recommendation feedback 처리 결과를 생성하거나 반환합니다.
 @app.post("/recommendations/feedback")
 def save_recommendation_feedback(data: dict):
     user_id = data.get("user_id")

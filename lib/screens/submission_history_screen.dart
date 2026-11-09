@@ -1,9 +1,14 @@
+// 파일 역할: 사용자에게 표시되는 Flutter 화면과 입력·상태 처리: submission history screen
+// 주요 선언부에는 담당 기능을 설명하는 한국어 주석을 추가했습니다.
+import 'review_list_screen.dart';
+import 'submission_code_screen.dart';
 import 'package:flutter/material.dart';
 import '../core/submission_history_api.dart';
 import '../models/submission_history.dart';
 import 'analysis_screen.dart';
 import 'statistics_screen.dart';
 
+/// SubmissionHistoryScreen: 해당 기능을 표시하는 화면 위젯입니다.
 class SubmissionHistoryScreen extends StatelessWidget {
   final int userId;
 
@@ -12,12 +17,14 @@ class SubmissionHistoryScreen extends StatelessWidget {
     required this.userId,
   });
 
+  /// verdictColor: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Color verdictColor(String verdict) {
     if (verdict == 'ACCEPTED') return Colors.green;
     if (verdict == 'WRONG_ANSWER') return Colors.red;
     return Colors.orange;
   }
 
+  /// verdictText: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   String verdictText(String verdict) {
     if (verdict == 'ACCEPTED') return '정답';
     if (verdict == 'WRONG_ANSWER') return '오답';
@@ -26,6 +33,7 @@ class SubmissionHistoryScreen extends StatelessWidget {
     return verdict;
   }
 
+  /// verdictIcon: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   IconData verdictIcon(String verdict) {
     if (verdict == 'ACCEPTED') return Icons.check_circle;
     if (verdict == 'WRONG_ANSWER') return Icons.cancel;
@@ -33,12 +41,19 @@ class SubmissionHistoryScreen extends StatelessWidget {
   }
 
   @override
+  /// build: 화면 위젯 구조를 구성합니다.
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('제출 기록'),
         actions: [
+          IconButton(
+            tooltip: '오답 복습', icon: const Icon(Icons.menu_book),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => ReviewListScreen(userId: userId),
+            )),
+          ),
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
@@ -91,6 +106,9 @@ class SubmissionHistoryScreen extends StatelessWidget {
                         builder: (_) => AnalysisScreen(
                           submissionId: s.id,
                           userId: userId,
+                          verdict: s.verdict,
+                          problemId: s.problemId,
+                          submittedCode: s.sourceCode,
                           fromHistory: true,
                         ),
                       ),
@@ -121,7 +139,7 @@ class SubmissionHistoryScreen extends StatelessWidget {
                               Text(
                                 '${s.language} · ${s.passedCount}/${s.totalCount} 통과',
                                 style: TextStyle(
-                                  color: Colors.grey[700],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -129,8 +147,16 @@ class SubmissionHistoryScreen extends StatelessWidget {
                                 s.createdAt,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[500],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => SubmissionCodeScreen(
+                                    userId: userId, submissionId: s.id,
+                                  ),
+                                )),
+                                icon: const Icon(Icons.code), label: const Text('제출 코드 보기'),
                               ),
                             ],
                           ),

@@ -1,13 +1,18 @@
+// 파일 역할: 사용자에게 표시되는 Flutter 화면과 입력·상태 처리: register screen
+// 주요 선언부에는 담당 기능을 설명하는 한국어 주석을 추가했습니다.
 import 'package:flutter/material.dart';
 import '../core/auth_api.dart';
 
+/// RegisterScreen: 해당 기능을 표시하는 화면 위젯입니다.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
+  /// createState: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+/// _RegisterScreenState: 화면/모델 내부에서만 사용하는 보조 처리입니다.
 class _RegisterScreenState extends State<RegisterScreen> {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
@@ -15,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool isLoading = false;
 
+  /// register: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Future<void> register() async {
     setState(() {
       isLoading = true;
@@ -46,6 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
+  /// build: 화면 위젯 구조를 구성합니다.
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

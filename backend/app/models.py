@@ -1,3 +1,5 @@
+# 파일 역할: 데이터베이스 ORM 테이블 모델과 컬럼 관계 정의
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, ForeignKey, TIMESTAMP
 )
@@ -6,6 +8,7 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+# Problem: 관련 데이터와 동작을 묶는 클래스입니다.
 class Problem(Base):
     __tablename__ = "problems"
 
@@ -25,6 +28,7 @@ class Problem(Base):
     test_cases = relationship("TestCase", back_populates="problem")
 
 
+# TestCase: 관련 데이터와 동작을 묶는 클래스입니다.
 class TestCase(Base):
     __tablename__ = "test_cases"
 
@@ -39,6 +43,7 @@ class TestCase(Base):
     problem = relationship("Problem", back_populates="test_cases")
 
 
+# Submission: 관련 데이터와 동작을 묶는 클래스입니다.
 class Submission(Base):
     __tablename__ = "submissions"
 
@@ -53,6 +58,7 @@ class Submission(Base):
     submitted_at = Column(TIMESTAMP, server_default=func.current_timestamp())
 
 
+# SubmissionResult: 관련 데이터와 동작을 묶는 클래스입니다.
 class SubmissionResult(Base):
     __tablename__ = "submission_results"
 
@@ -65,6 +71,7 @@ class SubmissionResult(Base):
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
 
 
+# AIAnalysis: 관련 데이터와 동작을 묶는 클래스입니다.
 class AIAnalysis(Base):
     __tablename__ = "ai_analyses"
 
@@ -89,6 +96,7 @@ class AIAnalysis(Base):
 
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
 
+# Hint: 관련 데이터와 동작을 묶는 클래스입니다.
 class Hint(Base):
     __tablename__ = "hints"
 

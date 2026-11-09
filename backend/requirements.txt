@@ -1,0 +1,13 @@
+# FastAPI 서버 및 MySQL 연결
+fastapi
+uvicorn
+pymysql
+sqlalchemy
+python-dotenv
+pydantic
+passlib[bcrypt]
+# 현재 Gemini 클라이언트 코드에서 사용
+# google-generativeai는 레거시 SDK로, 향후 google-genai 전환 검토 권장
+google-generativeai
+# 레거시 ai_analysis.py를 실제로 사용할 때 필요
+openai

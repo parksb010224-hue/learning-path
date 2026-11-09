@@ -1,3 +1,5 @@
+# 파일 역할: 문제 목록·상세 내용·공개 예제 조회 API
+# 참고: 이 주석은 코드 실행에 영향을 주지 않으며 각 함수의 입출력·책임을 설명합니다.
 from fastapi import APIRouter, HTTPException
 
 from app.db import get_connection
@@ -6,6 +8,7 @@ from app.db import get_connection
 router = APIRouter(prefix="/problems", tags=["problems"])
 
 
+# get_problems: 사용자 해결 여부를 포함한 문제 목록을 조회합니다.
 @router.get("")
 def get_problems(user_id: int):
     conn = get_connection()
@@ -40,6 +43,7 @@ def get_problems(user_id: int):
         conn.close()
 
 
+# get_problem: 문제 상세와 공개 예제 입출력을 조회합니다.
 @router.get("/{problem_id}")
 def get_problem(problem_id: int):
     conn = get_connection()
@@ -54,7 +58,8 @@ def get_problem(problem_id: int):
                     category,
                     description,
                     input_desc,
-                    output_desc
+                    output_desc,
+                    input_pattern
                 FROM problems
                 WHERE id = %s
             """, (problem_id,))
@@ -69,7 +74,7 @@ def get_problem(problem_id: int):
                     input_data,
                     expected_output
                 FROM test_cases
-                WHERE problem_id = %s
+                WHERE problem_id = %s AND is_sample = 1
                 ORDER BY id
             """, (problem_id,))
 

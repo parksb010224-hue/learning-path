@@ -1,11 +1,18 @@
+// 파일 역할: 문제 목록 검색·필터·학습 상태 표시 화면
+// 주요 선언부에는 담당 기능을 설명하는 한국어 주석을 추가했습니다.
+import 'settings_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/problem.dart';
+import '../utils/problem_filters.dart';
 import '../core/problem_api.dart';
 import 'problem_detail_screen.dart';
 import 'submission_history_screen.dart';
+import 'statistics_screen.dart';
+import 'review_list_screen.dart';
 import '../core/auth_api.dart';
 import 'login_screen.dart';
 
+/// ProblemListScreen: 해당 기능을 표시하는 화면 위젯입니다.
 class ProblemListScreen extends StatefulWidget {
   final int userId;
 
@@ -15,21 +22,36 @@ class ProblemListScreen extends StatefulWidget {
   });
 
   @override
+  /// createState: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   State<ProblemListScreen> createState() => _ProblemListScreenState();
 }
 
+/// _ProblemListScreenState: 화면/모델 내부에서만 사용하는 보조 처리입니다.
 class _ProblemListScreenState extends State<ProblemListScreen> {
   late Future<List<Problem>> futureProblems;
+  DifficultyFilter selectedDifficulty = DifficultyFilter.all;
+  SolvedFilter selectedSolved = SolvedFilter.all;
+  String? selectedCategory;
+  final searchController = TextEditingController();
 
   @override
+  /// dispose: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  /// initState: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   void initState() {
     super.initState();
     print('PROBLEM LIST USER ID: ${widget.userId}');
     futureProblems = ProblemApi.fetchProblems(widget.userId);
   }
 
+  /// difficultyColor: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Color difficultyColor(String difficulty) {
-    final value = difficulty.toLowerCase();
+    final value = normalizeDifficulty(difficulty);
 
     if (value == 'easy') return Colors.green;
     if (value == 'medium') return Colors.orange;
@@ -38,8 +60,9 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     return Colors.blue;
   }
 
+  /// difficultyText: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   String difficultyText(String difficulty) {
-    final value = difficulty.toLowerCase();
+    final value = normalizeDifficulty(difficulty);
 
     if (value == 'easy') return '쉬움';
     if (value == 'medium') return '보통';
@@ -48,13 +71,14 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     return difficulty;
   }
 
+  /// openProblemDetail: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Future<void> openProblemDetail(BuildContext context, Problem p) async {
     try {
       final detailProblem = await ProblemApi.fetchProblemDetail(p.id);
 
       if (!context.mounted) return;
 
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ProblemDetailScreen(
@@ -63,6 +87,10 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
           ),
         ),
       );
+      if (!mounted) return;
+      setState(() {
+        futureProblems = ProblemApi.fetchProblems(widget.userId);
+      });
     } catch (e) {
       if (!context.mounted) return;
 
@@ -74,6 +102,7 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     }
   }
 
+  /// header: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Widget header(int count) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -111,6 +140,101 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     );
   }
 
+  /// filterControls: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
+  Widget filterControls(List<Problem> problems) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth < 420
+              ? constraints.maxWidth
+              : (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: constraints.maxWidth,
+                child: TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    labelText: '문제 검색',
+                    hintText: '문제 제목 또는 유형 검색',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: searchController.text.isEmpty ? null : IconButton(
+                      tooltip: '검색 지우기', icon: const Icon(Icons.clear),
+                      onPressed: () => setState(() => searchController.clear()),
+                    ),
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              SizedBox(
+                width: constraints.maxWidth,
+                child: DropdownButtonFormField<String>(
+                  value: availableProblemCategories(problems).any((value) => value == selectedCategory)
+                      ? selectedCategory : null,
+                  hint: const Text('전체'),
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '문제 유형', border: OutlineInputBorder()),
+                  items: [
+                    const DropdownMenuItem<String>(value: null, child: Text('전체')),
+                    ...availableProblemCategories(problems).map((category) =>
+                      DropdownMenuItem(value: category, child: Text(category))),
+                  ],
+                  onChanged: (value) => setState(() => selectedCategory = value),
+                ),
+              ),
+              SizedBox(
+                width: width,
+                child: DropdownButtonFormField<DifficultyFilter>(
+                  value: selectedDifficulty,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: '난이도',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: DifficultyFilter.all, child: Text('전체')),
+                    DropdownMenuItem(value: DifficultyFilter.easy, child: Text('쉬움')),
+                    DropdownMenuItem(value: DifficultyFilter.medium, child: Text('보통')),
+                    DropdownMenuItem(value: DifficultyFilter.hard, child: Text('어려움')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => selectedDifficulty = value);
+                  },
+                ),
+              ),
+              SizedBox(
+                width: width,
+                child: DropdownButtonFormField<SolvedFilter>(
+                  value: selectedSolved,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: '해결 여부',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: SolvedFilter.all, child: Text('전체')),
+                    DropdownMenuItem(value: SolvedFilter.solved, child: Text('푼 문제만')),
+                    DropdownMenuItem(value: SolvedFilter.unsolved, child: Text('풀지 않은 문제만')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => selectedSolved = value);
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// problemCard: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Widget problemCard(BuildContext context, Problem p) {
     final color = difficultyColor(p.difficulty);
 
@@ -150,7 +274,7 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
                     Text(
                       p.category,
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -194,6 +318,7 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     );
   }
 
+  /// errorView: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Widget errorView(Object? error) {
     return Center(
       child: Padding(
@@ -206,6 +331,7 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
     );
   }
 
+  /// emptyView: 이 기능의 화면 상태·요청·데이터 처리를 담당합니다.
   Widget emptyView() {
     return const Center(
       child: Text('등록된 문제가 없습니다.'),
@@ -213,12 +339,20 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
   }
 
   @override
+  /// build: 화면 위젯 구조를 구성합니다.
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('러닝패스'),
         actions: [
+          const ThemeSettingsButton(),
+          IconButton(
+            tooltip: '학습 통계', icon: const Icon(Icons.bar_chart),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => StatisticsScreen(userId: widget.userId),
+            )),
+          ),
           IconButton(
             tooltip: '제출 기록',
             icon: const Icon(Icons.history),
@@ -342,16 +476,48 @@ class _ProblemListScreenState extends State<ProblemListScreen> {
             return emptyView();
           }
 
+          final filtered = filterProblems(
+            problems,
+            difficulty: selectedDifficulty,
+            solved: selectedSolved,
+            query: searchController.text,
+            category: availableProblemCategories(problems).contains(selectedCategory) ? selectedCategory : null,
+          );
           return ListView.builder(
-            itemCount: problems.length + 1,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            itemCount: filtered.isEmpty ? 4 : filtered.length + 3,
             itemBuilder: (context, index) {
-              if (index == 0) {
-                return header(problems.length);
-              }
-
-              final p = problems[index - 1];
-
-              return problemCard(context, p);
+              if (index == 0) return header(problems.length);
+              if (index == 1) return filterControls(problems);
+              if (index == 2) return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(children: [
+                  Expanded(child: Text('전체 ${problems.length}개 중 ${filtered.length}개 표시')),
+                  TextButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => ReviewListScreen(userId: widget.userId),
+                      ));
+                      if (mounted) setState(() => futureProblems = ProblemApi.fetchProblems(widget.userId));
+                    },
+                    icon: const Icon(Icons.menu_book), label: const Text('오답 복습'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      searchController.clear();
+                      selectedCategory = null;
+                      selectedDifficulty = DifficultyFilter.all;
+                      selectedSolved = SolvedFilter.all;
+                    }),
+                    child: const Text('초기화'),
+                  ),
+                ]),
+              );
+              if (filtered.isEmpty) return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: Text('선택한 조건에 맞는 문제가 없습니다.')),
+              );
+              return problemCard(context, filtered[index - 3]);
             },
           );
         },
